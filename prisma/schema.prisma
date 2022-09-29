@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-    provider = "sqlite"
+    provider = "postgres"
     // NOTE: When using postgresql, mysql or sqlserver, uncomment the @db.text annotations in model Account below
     // Further reading: 
     // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
@@ -61,4 +61,22 @@ model VerificationToken {
     expires    DateTime
 
     @@unique([identifier, token])
+}
+
+model SpeedDateUser {
+    id          String @id @default(cuid())
+    name        String
+    contactInfo String
+    status      String @default("waiting")
+    sourceDate  Date[] @relation("source")
+    sinkDate    Date[] @relation("sink")
+}
+
+model Date {
+    id           String        @id @default(cuid())
+    sourceUserId String
+    sourceUser   SpeedDateUser @relation(name: "source", fields: [sourceUserId], references: [id], onDelete: Cascade)
+    sinkUserId   String
+    sinkUser     SpeedDateUser @relation(name: "sink", fields: [sinkUserId], references: [id], onDelete: Cascade)
+    status       String        @default("ongoing")
 }
