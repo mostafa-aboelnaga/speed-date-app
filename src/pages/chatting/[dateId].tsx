@@ -5,14 +5,40 @@ import { useForm } from "react-hook-form";
 import { Button, Form, Input } from "react-daisyui";
 import { useAtom } from "jotai";
 import { userIdAtom } from "../index";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { IAgoraRTCRemoteUser, ICameraVideoTrack } from "agora-rtc-sdk-ng";
+// import AgoraRTC, { createClient } from "agora-rtc-sdk-ng";
+
+const APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
+
+const VideoPlayer = ({ user, className }) => {
+  const ref = useRef();
+
+  useEffect(() => {
+    user.videoTrack.play(ref.current);
+
+    return () => {
+        user.videoTrack.stop(ref.current);
+    }
+  }, []);
+
+  return <div ref={ref} className={className}></div>;
+};
 
 const ChattingPage: NextPage = () => {
   const [userId, setUserId] = useAtom(userIdAtom);
   const router = useRouter();
   const dateId = router.query.dateId as string;
+  console.log(dateId);
   const getDateUsersQuery = trpc.useQuery(["dates.getDateUsers", { dateId }]);
+  const getTokenQuery = trpc.useQuery(["dates.getToken", { userId, dateId }], {
+    refetchOnWindowFocus: false,
+  });
+
+  const [otherUser, setOtherUser] = useState<IAgoraRTCRemoteUser>();
+  const [personalVideoTrack, setPersonalVideoTrack] =
+    useState<ICameraVideoTrack>();
 
   let otherUserName = "";
 
@@ -22,6 +48,37 @@ const ChattingPage: NextPage = () => {
       ? getDateUsersQuery.data.sourceUser.name
       : getDateUsersQuery.data.sinkUser.name;
   }
+
+  useEffect(() => {
+    if (!getTokenQuery.data) return;
+
+    // connect to video using token
+    const connect = async () => {
+      const token = getTokenQuery.data;
+
+      const { default: AgoraRTC } = await import("agora-rtc-sdk-ng");
+      const client = AgoraRTC.createClient({
+        mode: "rtc",
+        codec: "vp8",
+      });
+
+      await client.join(APP_ID, dateId, token, userId);
+
+      client.on("user-published", (user, mediaType) => {
+        client.subscribe(user, mediaType).then(() => {
+          if (mediaType === "video") {
+            setOtherUser(user);
+          }
+        });
+      });
+
+      const tracks = await AgoraRTC.createMicrophoneAndCameraTracks();
+      setPersonalVideoTrack(tracks[1]);
+      await client.publish(tracks);
+    };
+
+    connect();
+  }, [getTokenQuery.data]);
 
   return (
     <>
@@ -35,11 +92,37 @@ const ChattingPage: NextPage = () => {
       </Head>
 
       <main className="container mx-auto flex flex-col gap-6 items-center justify-center min-h-screen p-4">
-        <h3 className="text-xl">{(otherUserName && `Chatting with ${otherUserName}`) ||
-            "Chatting with a user"}</h3>
+        <h3 className="text-xl">
+          {(otherUserName && `Chatting with ${otherUserName}`) ||
+            "Chatting with a user"}
+        </h3>
         <div>
-          <img src="/puff.svg" />
+          {getTokenQuery.isLoading && <img src="/puff.svg" />}
+          {getTokenQuery.data && <p>token: {getTokenQuery.data}</p>}
         </div>
+        <div className="grid grid-cols-2">
+          <div>
+            {otherUser && (
+              <div>
+                Remote
+                <VideoPlayer
+                  className={"w-[300px] h-[300px]"}
+                  user={otherUser}
+                />
+              </div>
+            )}
+            {personalVideoTrack && (
+              <div>
+                Personal
+                <VideoPlayer
+                  className={"w-[100px] h-[100px]"} 
+                  user={{ uid: userId, videoTrack: personalVideoTrack }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+        <div>Hello</div>
       </main>
     </>
   );

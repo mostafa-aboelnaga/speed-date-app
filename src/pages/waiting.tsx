@@ -1,8 +1,6 @@
 import type { NextPage } from "next";
 import Head from "next/head";
 import { trpc } from "../utils/trpc";
-import { useForm } from "react-hook-form";
-import { Button, Form, Input } from "react-daisyui";
 import { useAtom } from "jotai";
 import { userIdAtom } from "./index";
 import { useEffect } from "react";
@@ -14,13 +12,14 @@ const WaitingPage: NextPage = () => {
   const getMyDateQuery = trpc.useQuery(["users.getMyDate", { userId }]);
   const router = useRouter();
 
+  // on first render, we try to find a user to start a date with
   useEffect(() => {
+    if (!startDateQuery.data) return
     const date = startDateQuery.data;
-    if (date) {
-      router.push(`/chatting/${date.id}`);
-    }
+    router.push(`/chatting/${date.id}`);
   }, [startDateQuery.data]);
 
+  // on interval trigger, and there was a date, we go there
   useEffect(() => {
     const date = getMyDateQuery.data;
     if (date) {
@@ -28,6 +27,7 @@ const WaitingPage: NextPage = () => {
     }
   }, [getMyDateQuery.data]);
 
+  // the interval trigger fetching if someone started a date with us
   useEffect(() => {
     const interval = setInterval(() => {
       getMyDateQuery.refetch();
