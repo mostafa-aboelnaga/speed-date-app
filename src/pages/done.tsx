@@ -32,7 +32,7 @@ const DonePage: NextPage = () => {
     console.log(getFullDateQuery?.data);
     const interval = setInterval(() => {
       getFullDateQuery.refetch();
-    }, 3000);
+    }, 1000);
 
     return () => {
       clearInterval(interval);

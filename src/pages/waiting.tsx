@@ -19,6 +19,7 @@ const WaitingPage: NextPage = () => {
     staleTime: 0,
   });
   const setStatusMutation = trpc.useMutation("users.setStatus");
+
   const router = useRouter();
 
   useEffect(() => {
@@ -43,7 +44,6 @@ const WaitingPage: NextPage = () => {
 
   // the interval trigger fetching if someone started a date with us
   useEffect(() => {
-    console.log(getDateQuery?.data);
     const interval = setInterval(() => {
       getDateQuery.refetch();
     }, 5000);

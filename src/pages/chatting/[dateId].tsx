@@ -29,10 +29,10 @@ const VideoPlayer = ({
 
   useEffect(() => {
     const playerRef = ref.current;
-
     if (!videoTrack || !playerRef) return;
 
     videoTrack.play(playerRef);
+
     return () => {
       videoTrack.stop();
     };
@@ -44,15 +44,17 @@ const VideoPlayer = ({
 const ChattingPage: NextPage = () => {
   const promiseRef = useRef<any>(Promise.resolve());
 
-  const [userId, setUserId] = useAtom(userIdAtom);
+  const [userId] = useAtom(userIdAtom);
   const [, setDateIdGlobal] = useAtom(dateIdAtom);
 
   const router = useRouter();
   const dateId = router.query.dateId as string;
-  console.log(dateId);
+
   const getFullDateQuery = trpc.useQuery(["dates.getFullDate", { dateId }]);
   const getTokenQuery = trpc.useQuery(["dates.getToken", { userId, dateId }], {
     refetchOnWindowFocus: false,
+    cacheTime: 0,
+    staleTime: 0,
   });
 
   const [otherUser, setOtherUser] = useState<IAgoraRTCRemoteUser>();
@@ -105,12 +107,12 @@ const ChattingPage: NextPage = () => {
       router.push("/");
       return;
     }
-    if (!getTokenQuery.data || !dateId || !router) return;
+
+    const token = getTokenQuery.data;
+    if (!token) return;
 
     // connect to video using token
     const connect = async () => {
-      const token = getTokenQuery.data;
-
       const { default: AgoraRTC } = await import("agora-rtc-sdk-ng");
       const client = AgoraRTC.createClient({
         mode: "rtc",
@@ -137,11 +139,12 @@ const ChattingPage: NextPage = () => {
       return { tracks, client };
     };
 
-    promiseRef.current = promiseRef.current.then(connect);
+    const connection = connect();
 
     return () => {
       const disconnect = async () => {
-        const { tracks, client } = await promiseRef.current;
+        const { tracks, client } = await connection;
+
         client.removeAllListeners();
         tracks[0]?.stop();
         tracks[0]?.close();
@@ -151,9 +154,9 @@ const ChattingPage: NextPage = () => {
         await client.unpublish(tracks[1]);
         await client.leave();
       };
-      promiseRef.current.then(disconnect);
+      disconnect();
     };
-  }, [getTokenQuery.data, userId, dateId]);
+  }, [getTokenQuery.data]);
 
   return (
     <>
@@ -178,29 +181,20 @@ const ChattingPage: NextPage = () => {
           />
         )}
 
-        <div className="grid grid-cols-2">
-          <div>
-            {otherUser?.videoTrack && (
-              <div>
-                Remote
-                <VideoPlayer
-                  className="w-[300px] h-[300px]"
-                  videoTrack={otherUser.videoTrack}
-                />
-              </div>
-            )}
-            {personalVideoTrack && (
-              <div>
-                Personal
-                <VideoPlayer
-                  className="w-[100px] h-[100px]"
-                  videoTrack={personalVideoTrack}
-                />
-              </div>
-            )}
-          </div>
+        <div className="flex gap-8">
+          {otherUser?.videoTrack && (
+            <VideoPlayer
+              className="w-[400px] h-[400px]"
+              videoTrack={otherUser.videoTrack}
+            />
+          )}
+          {personalVideoTrack && (
+            <VideoPlayer
+              className="w-[400px] h-[400px]"
+              videoTrack={personalVideoTrack}
+            />
+          )}
         </div>
-        <div>Hello</div>
       </main>
     </>
   );
