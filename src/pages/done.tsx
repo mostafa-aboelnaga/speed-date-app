@@ -5,9 +5,52 @@ import { useForm } from "react-hook-form";
 import { Button, Form, Input } from "react-daisyui";
 import { useRouter } from "next/router";
 import { atom, useAtom } from "jotai";
+import { userIdAtom } from "./index";
+import { dateIdAtom } from "./chatting/[dateId]";
+import { useEffect, useState } from "react";
 
 const DonePage: NextPage = () => {
   const router = useRouter();
+  const [userId, setUserId] = useAtom(userIdAtom);
+  const [dateId] = useAtom(dateIdAtom);
+
+  const [feedbackSent, setFeedbackSent] = useState(false);
+
+  const postFeedbackMutation = trpc.useMutation("dates.postFeedback");
+  const getFullDateQuery = trpc.useQuery(["dates.getFullDate", { dateId }], {
+    refetchOnWindowFocus: false,
+  });
+
+  const handleFeedbackButtons = async (status: string) => {
+    await postFeedbackMutation.mutateAsync({ userId, dateId, status });
+    setFeedbackSent(true);
+  };
+
+  // the interval trigger fetching if someone started a date with us
+  useEffect(() => {
+    if (bothFeedbacksProvided) return;
+    console.log(getFullDateQuery?.data);
+    const interval = setInterval(() => {
+      getFullDateQuery.refetch();
+    }, 3000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [getFullDateQuery]);
+
+  const bothFeedbacksProvided =
+    getFullDateQuery.data?.sinkUserFeedback &&
+    getFullDateQuery.data?.sourceUserFeedback;
+
+  const bothLiked =
+    getFullDateQuery.data?.sinkUserFeedback! === "like" &&
+    getFullDateQuery.data?.sourceUserFeedback === "like";
+
+  const isSinkUser = getFullDateQuery.data?.sinkUserId === userId;
+  const contactInfo = isSinkUser
+    ? getFullDateQuery.data?.sourceUser.contactInfo
+    : getFullDateQuery.data?.sinkUser.contactInfo;
 
   return (
     <>
@@ -19,13 +62,47 @@ const DonePage: NextPage = () => {
 
       <main className="container mx-auto flex flex-col gap-6 items-center justify-center min-h-screen p-4">
         <h3 className="text-xl">Your Session is Done!</h3>
-        <Button
-          onClick={() => {
-            router.push("/waiting");
-          }}
-        >
-          Go to Waiting Room
-        </Button>
+        <h4 className="text-lg">What Do You Think of Your Date?</h4>
+        <div className="flex gap-4">
+          {!feedbackSent && (
+            <>
+              <Button
+                onClick={() => handleFeedbackButtons("like")}
+                color="success"
+                className="w-64"
+              >
+                LIKE
+              </Button>
+              <Button
+                onClick={() => handleFeedbackButtons("dislike")}
+                color="error"
+                className="w-64"
+              >
+                DISLIKE
+              </Button>
+            </>
+          )}
+        </div>
+
+        {feedbackSent && !bothFeedbacksProvided && (
+          <div>Waiting for your date's feedback...</div>
+        )}
+
+        {bothFeedbacksProvided && bothLiked && (
+          <div>There you go! Here is their contact info: {contactInfo}</div>
+        )}
+
+        {bothFeedbacksProvided && !bothLiked && <div>Not a match!</div>}
+
+        {bothFeedbacksProvided && (
+          <Button
+            onClick={() => {
+              router.push("/waiting");
+            }}
+          >
+            Go to Waiting Room
+          </Button>
+        )}
       </main>
     </>
   );

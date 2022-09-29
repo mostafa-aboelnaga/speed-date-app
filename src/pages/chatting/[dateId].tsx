@@ -3,18 +3,20 @@ import Head from "next/head";
 import { trpc } from "../../utils/trpc";
 import { useForm } from "react-hook-form";
 import { Button, Form, Input } from "react-daisyui";
-import { useAtom } from "jotai";
+import { atom, useAtom } from "jotai";
 import { userIdAtom } from "../index";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import {
   IAgoraRTCRemoteUser,
   ICameraVideoTrack,
+  IRemoteAudioTrack,
   IRemoteVideoTrack,
 } from "agora-rtc-sdk-ng";
 import Countdown from "react-countdown";
 
 const APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
+export const dateIdAtom = atom("");
 
 const VideoPlayer = ({
   videoTrack,
@@ -40,14 +42,15 @@ const VideoPlayer = ({
 };
 
 const ChattingPage: NextPage = () => {
-  const [timeLeft] = useState(Date.now() + 1000 * 20);
-
   const promiseRef = useRef<any>(Promise.resolve());
+
   const [userId, setUserId] = useAtom(userIdAtom);
+  const [, setDateIdGlobal] = useAtom(dateIdAtom);
+
   const router = useRouter();
   const dateId = router.query.dateId as string;
   console.log(dateId);
-  const getDateUsersQuery = trpc.useQuery(["dates.getDateUsers", { dateId }]);
+  const getFullDateQuery = trpc.useQuery(["dates.getFullDate", { dateId }]);
   const getTokenQuery = trpc.useQuery(["dates.getToken", { userId, dateId }], {
     refetchOnWindowFocus: false,
   });
@@ -56,20 +59,41 @@ const ChattingPage: NextPage = () => {
   const [personalVideoTrack, setPersonalVideoTrack] =
     useState<ICameraVideoTrack>();
 
-  const setStatusMutation = trpc.useMutation("users.setStatus");
+  const setUserStatusMutation = trpc.useMutation("users.setStatus");
+  const joinDateMutation = trpc.useMutation("dates.joinDate");
+
+  useEffect(() => {
+    if (!dateId) return;
+    setDateIdGlobal(dateId);
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
-    setStatusMutation.mutate({ userId, status: "chatting" });
+    setUserStatusMutation.mutate({ userId, status: "chatting" });
+    joinDateMutation.mutate({ dateId, userId });
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      getFullDateQuery.refetch();
+    }, 1000);
+
+    if (getFullDateQuery.data?.endsOn) {
+      clearInterval(interval);
+    }
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [getFullDateQuery]);
 
   let otherUserName = "";
 
-  if (getDateUsersQuery.data) {
-    const isCurrentlySinkUser = getDateUsersQuery.data.sinkUserId === userId;
+  if (getFullDateQuery.data) {
+    const isCurrentlySinkUser = getFullDateQuery.data.sinkUserId === userId;
     otherUserName = isCurrentlySinkUser
-      ? getDateUsersQuery.data.sourceUser.name
-      : getDateUsersQuery.data.sinkUser.name;
+      ? getFullDateQuery.data.sourceUser.name
+      : getFullDateQuery.data.sinkUser.name;
   }
 
   const handleCountdownCompleted = () => {
@@ -100,6 +124,9 @@ const ChattingPage: NextPage = () => {
           if (mediaType === "video") {
             setOtherUser(user);
           }
+          if (mediaType === "audio") {
+            user.audioTrack?.play();
+          }
         });
       });
 
@@ -116,6 +143,8 @@ const ChattingPage: NextPage = () => {
       const disconnect = async () => {
         const { tracks, client } = await promiseRef.current;
         client.removeAllListeners();
+        tracks[0]?.stop();
+        tracks[0]?.close();
         tracks[1]?.stop();
         tracks[1]?.close();
 
@@ -142,13 +171,13 @@ const ChattingPage: NextPage = () => {
           {(otherUserName && `Chatting with ${otherUserName}`) ||
             "Chatting with a user"}
         </h3>
-        {getTokenQuery && (
-          <Countdown date={timeLeft} onComplete={handleCountdownCompleted} />
+        {getFullDateQuery.data?.endsOn && (
+          <Countdown
+            date={parseInt(getFullDateQuery.data.endsOn)}
+            onComplete={handleCountdownCompleted}
+          />
         )}
-        <div>
-          {getTokenQuery.isLoading && <img src="/puff.svg" />}
-          {getTokenQuery.data && <p>token: {getTokenQuery.data}</p>}
-        </div>
+
         <div className="grid grid-cols-2">
           <div>
             {otherUser?.videoTrack && (

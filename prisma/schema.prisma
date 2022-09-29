@@ -73,10 +73,15 @@ model SpeedDateUser {
 }
 
 model Date {
-    id           String        @id @default(cuid())
-    sourceUserId String
-    sourceUser   SpeedDateUser @relation(name: "source", fields: [sourceUserId], references: [id], onDelete: Cascade)
-    sinkUserId   String
-    sinkUser     SpeedDateUser @relation(name: "sink", fields: [sinkUserId], references: [id], onDelete: Cascade)
-    status       String        @default("ongoing")
+    id                 String        @id @default(cuid())
+    endsOn             String?       
+    sourceUserId       String
+    sourceUser         SpeedDateUser @relation(name: "source", fields: [sourceUserId], references: [id], onDelete: Cascade)
+    sourceUserJoined   Boolean       @default(false)
+    sinkUserId         String
+    sinkUser           SpeedDateUser @relation(name: "sink", fields: [sinkUserId], references: [id], onDelete: Cascade)
+    sinkUserJoined     Boolean       @default(false)
+    status             String        @default("waiting")
+    sourceUserFeedback String?
+    sinkUserFeedback   String?
 }

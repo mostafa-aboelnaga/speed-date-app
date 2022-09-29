@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Date" ALTER COLUMN "endsOn" SET DATA TYPE BIGINT;

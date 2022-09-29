@@ -1,6 +1,5 @@
 import { createRouter } from "./context";
 import { z } from "zod";
-import { RtcTokenBuilder, RtcRole } from "agora-access-token";
 
 export const usersRouter = createRouter()
   .mutation("createUser", {
@@ -36,6 +35,7 @@ export const usersRouter = createRouter()
         data: {
           sourceUserId: input.userId,
           sinkUserId: datingUser.id,
+          status: "waiting",
         },
       });
 
@@ -50,6 +50,7 @@ export const usersRouter = createRouter()
       const date = await ctx.prisma.date.findFirst({
         where: {
           sinkUserId: input.userId,
+          status: "waiting",
         },
       });
       return date;
