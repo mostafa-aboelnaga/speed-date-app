@@ -42,7 +42,7 @@ export const usersRouter = createRouter()
       return date;
     },
   })
-  .query("getMyDate", {
+  .query("getDate", {
     input: z.object({
       userId: z.string(),
     }),
@@ -53,5 +53,21 @@ export const usersRouter = createRouter()
         },
       });
       return date;
+    },
+  })
+  .mutation("setStatus", {
+    input: z.object({
+      userId: z.string(),
+      status: z.string(),
+    }),
+    resolve: async ({ input, ctx }) => {
+      await ctx.prisma.speedDateUser.update({
+        where: {
+          id: input.userId,
+        },
+        data: {
+          status: input.status,
+        },
+      });
     },
   });

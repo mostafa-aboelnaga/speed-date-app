@@ -8,35 +8,50 @@ import { useRouter } from "next/router";
 
 const WaitingPage: NextPage = () => {
   const [userId, setUserId] = useAtom(userIdAtom);
-  const startDateQuery = trpc.useQuery(["users.startDate", { userId }]);
-  const getMyDateQuery = trpc.useQuery(["users.getMyDate", { userId }]);
+  const startDateQuery = trpc.useQuery(["users.startDate", { userId }], {
+    refetchOnWindowFocus: false,
+    cacheTime: 0,
+    staleTime: 0,
+  });
+  const getDateQuery = trpc.useQuery(["users.getDate", { userId }], {
+    refetchOnWindowFocus: false,
+    cacheTime: 0,
+    staleTime: 0,
+  });
+  const setStatusMutation = trpc.useMutation("users.setStatus");
   const router = useRouter();
+
+  useEffect(() => {
+    if (!userId) return;
+    setStatusMutation.mutate({ userId, status: "waiting" });
+  }, []);
 
   // on first render, we try to find a user to start a date with
   useEffect(() => {
-    if (!startDateQuery.data) return
+    if (!startDateQuery.data) return;
     const date = startDateQuery.data;
     router.push(`/chatting/${date.id}`);
   }, [startDateQuery.data]);
 
   // on interval trigger, and there was a date, we go there
   useEffect(() => {
-    const date = getMyDateQuery.data;
+    const date = getDateQuery.data;
     if (date) {
       router.push(`/chatting/${date.id}`);
     }
-  }, [getMyDateQuery.data]);
+  }, [getDateQuery.data, router]);
 
   // the interval trigger fetching if someone started a date with us
   useEffect(() => {
+    console.log(getDateQuery?.data);
     const interval = setInterval(() => {
-      getMyDateQuery.refetch();
+      getDateQuery.refetch();
     }, 5000);
 
     return () => {
       clearInterval(interval);
     };
-  }, [getMyDateQuery]);
+  }, [getDateQuery]);
 
   return (
     <>

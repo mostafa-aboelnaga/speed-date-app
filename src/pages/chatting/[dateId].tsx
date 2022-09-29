@@ -7,26 +7,42 @@ import { useAtom } from "jotai";
 import { userIdAtom } from "../index";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { IAgoraRTCRemoteUser, ICameraVideoTrack } from "agora-rtc-sdk-ng";
-// import AgoraRTC, { createClient } from "agora-rtc-sdk-ng";
+import {
+  IAgoraRTCRemoteUser,
+  ICameraVideoTrack,
+  IRemoteVideoTrack,
+} from "agora-rtc-sdk-ng";
+import Countdown from "react-countdown";
 
 const APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
 
-const VideoPlayer = ({ user, className }) => {
-  const ref = useRef();
+const VideoPlayer = ({
+  videoTrack,
+  className,
+}: {
+  videoTrack: ICameraVideoTrack | IRemoteVideoTrack;
+  className: string;
+}) => {
+  const ref = useRef(null);
 
   useEffect(() => {
-    user.videoTrack.play(ref.current);
+    const playerRef = ref.current;
 
+    if (!videoTrack || !playerRef) return;
+
+    videoTrack.play(playerRef);
     return () => {
-        user.videoTrack.stop(ref.current);
-    }
-  }, []);
+      videoTrack.stop();
+    };
+  }, [videoTrack]);
 
   return <div ref={ref} className={className}></div>;
 };
 
 const ChattingPage: NextPage = () => {
+  const [timeLeft] = useState(Date.now() + 1000 * 20);
+
+  const promiseRef = useRef<any>(Promise.resolve());
   const [userId, setUserId] = useAtom(userIdAtom);
   const router = useRouter();
   const dateId = router.query.dateId as string;
@@ -40,6 +56,13 @@ const ChattingPage: NextPage = () => {
   const [personalVideoTrack, setPersonalVideoTrack] =
     useState<ICameraVideoTrack>();
 
+  const setStatusMutation = trpc.useMutation("users.setStatus");
+
+  useEffect(() => {
+    if (!userId) return;
+    setStatusMutation.mutate({ userId, status: "chatting" });
+  }, []);
+
   let otherUserName = "";
 
   if (getDateUsersQuery.data) {
@@ -49,8 +72,16 @@ const ChattingPage: NextPage = () => {
       : getDateUsersQuery.data.sinkUser.name;
   }
 
+  const handleCountdownCompleted = () => {
+    router.push("/done");
+  };
+
   useEffect(() => {
-    if (!getTokenQuery.data) return;
+    if (!userId) {
+      router.push("/");
+      return;
+    }
+    if (!getTokenQuery.data || !dateId || !router) return;
 
     // connect to video using token
     const connect = async () => {
@@ -75,10 +106,25 @@ const ChattingPage: NextPage = () => {
       const tracks = await AgoraRTC.createMicrophoneAndCameraTracks();
       setPersonalVideoTrack(tracks[1]);
       await client.publish(tracks);
+
+      return { tracks, client };
     };
 
-    connect();
-  }, [getTokenQuery.data]);
+    promiseRef.current = promiseRef.current.then(connect);
+
+    return () => {
+      const disconnect = async () => {
+        const { tracks, client } = await promiseRef.current;
+        client.removeAllListeners();
+        tracks[1]?.stop();
+        tracks[1]?.close();
+
+        await client.unpublish(tracks[1]);
+        await client.leave();
+      };
+      promiseRef.current.then(disconnect);
+    };
+  }, [getTokenQuery.data, userId, dateId]);
 
   return (
     <>
@@ -96,18 +142,21 @@ const ChattingPage: NextPage = () => {
           {(otherUserName && `Chatting with ${otherUserName}`) ||
             "Chatting with a user"}
         </h3>
+        {getTokenQuery && (
+          <Countdown date={timeLeft} onComplete={handleCountdownCompleted} />
+        )}
         <div>
           {getTokenQuery.isLoading && <img src="/puff.svg" />}
           {getTokenQuery.data && <p>token: {getTokenQuery.data}</p>}
         </div>
         <div className="grid grid-cols-2">
           <div>
-            {otherUser && (
+            {otherUser?.videoTrack && (
               <div>
                 Remote
                 <VideoPlayer
-                  className={"w-[300px] h-[300px]"}
-                  user={otherUser}
+                  className="w-[300px] h-[300px]"
+                  videoTrack={otherUser.videoTrack}
                 />
               </div>
             )}
@@ -115,8 +164,8 @@ const ChattingPage: NextPage = () => {
               <div>
                 Personal
                 <VideoPlayer
-                  className={"w-[100px] h-[100px]"} 
-                  user={{ uid: userId, videoTrack: personalVideoTrack }}
+                  className="w-[100px] h-[100px]"
+                  videoTrack={personalVideoTrack}
                 />
               </div>
             )}
