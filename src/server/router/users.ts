@@ -10,7 +10,7 @@ export const usersRouter = createRouter()
     resolve: async ({ input, ctx }) => {
       console.log(input);
       const createdUser = await ctx.prisma.speedDateUser.create({
-        data: input,
+        data: input as any,
       });
       return createdUser;
     },

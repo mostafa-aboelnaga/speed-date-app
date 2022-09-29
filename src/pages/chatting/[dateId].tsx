@@ -1,21 +1,18 @@
-import type { NextPage } from "next";
-import Head from "next/head";
-import { trpc } from "../../utils/trpc";
-import { useForm } from "react-hook-form";
-import { Button, Form, Input } from "react-daisyui";
-import { atom, useAtom } from "jotai";
-import { userIdAtom } from "../index";
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/router";
 import {
   IAgoraRTCRemoteUser,
   ICameraVideoTrack,
-  IRemoteAudioTrack,
   IRemoteVideoTrack,
 } from "agora-rtc-sdk-ng";
+import { atom, useAtom } from "jotai";
+import type { NextPage } from "next";
+import Head from "next/head";
+import { useRouter } from "next/router";
+import { useEffect, useRef, useState } from "react";
 import Countdown from "react-countdown";
+import { trpc } from "../../utils/trpc";
+import { userIdAtom } from "../index";
 
-const APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
+const APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 export const dateIdAtom = atom("");
 
 const VideoPlayer = ({
@@ -50,12 +47,18 @@ const ChattingPage: NextPage = () => {
   const router = useRouter();
   const dateId = router.query.dateId as string;
 
-  const getFullDateQuery = trpc.useQuery(["dates.getFullDate", { dateId }]);
-  const getTokenQuery = trpc.useQuery(["dates.getToken", { userId, dateId }], {
-    refetchOnWindowFocus: false,
-    cacheTime: 0,
-    staleTime: 0,
-  });
+  const getFullDateQuery = trpc.useQuery([
+    "dates.getFullDate",
+    { dateId } as any,
+  ]);
+  const getTokenQuery = trpc.useQuery(
+    ["dates.getToken", { userId, dateId } as any],
+    {
+      refetchOnWindowFocus: false,
+      cacheTime: 0,
+      staleTime: 0,
+    },
+  );
 
   const [otherUser, setOtherUser] = useState<IAgoraRTCRemoteUser>();
   const [personalVideoTrack, setPersonalVideoTrack] =
@@ -67,12 +70,14 @@ const ChattingPage: NextPage = () => {
   useEffect(() => {
     if (!dateId) return;
     setDateIdGlobal(dateId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!userId) return;
-    setUserStatusMutation.mutate({ userId, status: "chatting" });
-    joinDateMutation.mutate({ dateId, userId });
+    setUserStatusMutation.mutate({ userId, status: "chatting" } as any);
+    joinDateMutation.mutate({ dateId, userId } as any);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -156,6 +161,7 @@ const ChattingPage: NextPage = () => {
       };
       disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getTokenQuery.data]);
 
   return (

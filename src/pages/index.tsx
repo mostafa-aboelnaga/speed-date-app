@@ -32,7 +32,7 @@ const Home: NextPage = () => {
   const router = useRouter();
 
   const onSubmit = async (data: RegisterForm) => {
-    await createUser.mutateAsync(data);
+    await createUser.mutateAsync(data as any);
   };
 
   return (

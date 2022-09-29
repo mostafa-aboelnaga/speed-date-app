@@ -1,13 +1,12 @@
+import { useAtom } from "jotai";
 import type { NextPage } from "next";
 import Head from "next/head";
-import { trpc } from "../utils/trpc";
-import { useForm } from "react-hook-form";
-import { Button, Form, Input } from "react-daisyui";
 import { useRouter } from "next/router";
-import { atom, useAtom } from "jotai";
-import { userIdAtom } from "./index";
-import { dateIdAtom } from "./chatting/[dateId]";
 import { useEffect, useState } from "react";
+import { Button } from "react-daisyui";
+import { trpc } from "../utils/trpc";
+import { dateIdAtom } from "./chatting/[dateId]";
+import { userIdAtom } from "./index";
 
 const DonePage: NextPage = () => {
   const router = useRouter();
@@ -17,12 +16,12 @@ const DonePage: NextPage = () => {
   const [feedbackSent, setFeedbackSent] = useState(false);
 
   const postFeedbackMutation = trpc.useMutation("dates.postFeedback");
-  const getFullDateQuery = trpc.useQuery(["dates.getFullDate", { dateId }], {
+  const getFullDateQuery = trpc.useQuery(["dates.getFullDate", { dateId } as any], {
     refetchOnWindowFocus: false,
   });
 
   const handleFeedbackButtons = async (status: string) => {
-    await postFeedbackMutation.mutateAsync({ userId, dateId, status });
+    await postFeedbackMutation.mutateAsync({ userId, dateId, status } as any);
     setFeedbackSent(true);
   };
 

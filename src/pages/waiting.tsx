@@ -8,12 +8,12 @@ import { useRouter } from "next/router";
 
 const WaitingPage: NextPage = () => {
   const [userId, setUserId] = useAtom(userIdAtom);
-  const startDateQuery = trpc.useQuery(["users.startDate", { userId }], {
+  const startDateQuery = trpc.useQuery(["users.startDate", { userId } as any], {
     refetchOnWindowFocus: false,
     cacheTime: 0,
     staleTime: 0,
   });
-  const getDateQuery = trpc.useQuery(["users.getDate", { userId }], {
+  const getDateQuery = trpc.useQuery(["users.getDate", { userId } as any], {
     refetchOnWindowFocus: false,
     cacheTime: 0,
     staleTime: 0,
@@ -24,7 +24,7 @@ const WaitingPage: NextPage = () => {
 
   useEffect(() => {
     if (!userId) return;
-    setStatusMutation.mutate({ userId, status: "waiting" });
+    setStatusMutation.mutate({ userId, status: "waiting" } as any);
   }, []);
 
   // on first render, we try to find a user to start a date with
