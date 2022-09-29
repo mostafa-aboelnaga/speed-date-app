@@ -8,11 +8,6 @@ import { userIdAtom } from "./index";
 import { useEffect } from "react";
 import { useRouter } from "next/router";
 
-type RegisterForm = {
-  name: string;
-  contactInfo: string;
-};
-
 const WaitingPage: NextPage = () => {
   const [userId, setUserId] = useAtom(userIdAtom);
   const startDateQuery = trpc.useQuery(["users.startDate", { userId }]);
